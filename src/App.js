@@ -1,22 +1,25 @@
 import * as React from "react";
+import ToDoItem from "./components/ToDoItem/ToDoItem";
+import AddInput from "./components/AddInput/AddInput";
+import Filter from "./components/Filter/Filter";
+import {callTodosApi} from './api'
 import "./App.css";
 
 const apiKeyLocalStorageKey = "apiKey";
 
-function ToDoItem({ id, status, tags, text }) {
-  return (
-    <div className="App-todo-item">
-      <span>Id: {id}</span>
-      <span>Status: {status}</span>
-      <span>Tags: {tags}</span>
-      <span>Text: {text}</span>
-    </div>
-  );
-}
-
 function App() {
   const [apiKey, setApiKey] = React.useState("");
   const [todos, setTodos] = React.useState([]);
+  const [filteredTodo, setFilteredTodo] = React.useState([])
+
+  const getTodo = React.useCallback(() => {
+    callTodosApi(apiKey)
+      .then((res) => {
+        setTodos(res.records);
+      })
+      .catch((e) => console.error(e));
+  }, [apiKey])
+
   React.useEffect(() => {
     const apiKeyFromLocalStorage = localStorage.getItem(apiKeyLocalStorageKey);
     if (apiKeyFromLocalStorage) {
@@ -26,27 +29,19 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    async function callTodosApi() {
-      const response = await fetch("<BACKEND_URL>", {
-        headers: {
-          "X-Api-Key": apiKey,
-        },
-      });
-      return await response.json();
-    }
     if (apiKey) {
-      callTodosApi()
-        .then((res) => {
-          setTodos(res.records);
-        })
-        .catch((e) => console.error(e));
+      getTodo()
     }
-  }, [apiKey]);
+  }, [apiKey, getTodo]);
+
+  React.useEffect(() => {
+    setFilteredTodo(todos)
+  }, [todos]);
 
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Api-key">
+        {!apiKey && <div className="Api-key">
           <span>Enter API key from email: </span>
           <input
             className="Api-input"
@@ -60,21 +55,28 @@ function App() {
               setApiKey(textEvent.target.value);
             }}
           />
-        </div>
+        </div>}
+        <Filter onFilter={setFilteredTodo} todos={todos}/>
         <div className="Todo-list">
-          {todos.length > 0 ? (
-            todos.map((todo) => (
+          {filteredTodo.length > 0 ? (
+            filteredTodo.map((todo) => (
               <ToDoItem
+                key={todo.id}
+                apiKey={apiKey}
+                getTodo={getTodo}
                 status={todo.fields.Status}
                 id={todo.id}
-                tags={todo.fields.Tags}
+                tags={JSON.parse(todo.fields.Tags)}
                 text={todo.fields.Text}
               />
             ))
           ) : (
-            <span>No items</span>
+            <>
+              <span>No items</span>
+            </>  
           )}
         </div>
+        <AddInput apiKey={apiKey} getTodo={getTodo}/>
       </header>
     </div>
   );
